@@ -1,6 +1,7 @@
 using System.IO;
 using System.Security.Cryptography;
 using System.Windows;
+using System.Windows.Threading;
 using HelloOtp.Core;
 using Microsoft.Win32;
 
@@ -14,9 +15,17 @@ internal sealed class AppController
 
     private readonly VaultStore _store = new(DataDirectory);
     private readonly SafeClipboard _clipboard = new();
+    private readonly HelloSession _session = new();
+    private readonly DispatcherTimer _sessionTimer = new() { Interval = HelloSession.Lifetime };
     private FloatingIcon? _icon;
     private CodePanel? _panel;
     private bool _busy;
+
+    public AppController()
+    {
+        // Wipes the key at the deadline instead of leaving it in memory until the next click.
+        _sessionTimer.Tick += (_, _) => EndHelloSession();
+    }
 
     public AppSettings Settings { get; } = AppSettings.Load(DataDirectory);
 
@@ -50,9 +59,24 @@ internal sealed class AppController
             Application.Current.Dispatcher.BeginInvoke(LockAll);
     }
 
-    /// <summary>Closes every window that can hold secrets. Each one wipes what it holds on close.</summary>
+    private void BeginHelloSession(UnlockedVault vault)
+    {
+        _session.Begin(vault.CopyKey());
+        _sessionTimer.Stop();
+        if (_session.IsActive)
+            _sessionTimer.Start();
+    }
+
+    private void EndHelloSession()
+    {
+        _sessionTimer.Stop();
+        _session.End();
+    }
+
+    /// <summary>Forgets the Hello check and closes every window that can hold secrets. Each one wipes what it holds on close.</summary>
     public void LockAll()
     {
+        EndHelloSession();
         foreach (var window in Application.Current.Windows.OfType<Window>().ToList())
         {
             if (window != _icon)
@@ -166,7 +190,34 @@ internal sealed class AppController
         }
     }
 
+    /// <summary>Opens the vault, asking for Windows Hello only if there is no live session from an earlier check.</summary>
     private async Task<UnlockedVault?> UnlockAsync()
+    {
+        var key = _session.TryCopyKey();
+        if (key != null)
+        {
+            try
+            {
+                return Vault.OpenWithKey(_store.Read(), key);
+            }
+            catch (VaultException)
+            {
+                // The file no longer matches the remembered key, so fall through to a real check.
+                EndHelloSession();
+            }
+            finally
+            {
+                SecretBuffer.Wipe(key);
+            }
+        }
+
+        var vault = await UnlockWithHelloAsync();
+        if (vault != null)
+            BeginHelloSession(vault);
+        return vault;
+    }
+
+    private async Task<UnlockedVault?> UnlockWithHelloAsync()
     {
         var result = await HelloKey.SignAsync(HelloKeyMode.OpenOnly);
         try
@@ -218,6 +269,7 @@ internal sealed class AppController
                 return false;
             using var vault = Vault.Create(signature, recovery);
             _store.Write(vault.ToFileBytes());
+            BeginHelloSession(vault);
             return true;
         }
         finally

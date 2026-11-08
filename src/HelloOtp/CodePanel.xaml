@@ -36,6 +36,7 @@
                        Text="No accounts yet. Right-click the icon and choose Import." />
 
             <ListBox x:Name="Rows" Grid.Row="1" BorderThickness="0" Background="Transparent" MaxHeight="490"
+                     Foreground="{DynamicResource TextPrimary}"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled" Focusable="False">
                 <ListBox.ItemContainerStyle>
                     <Style TargetType="ListBoxItem">

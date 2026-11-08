@@ -133,6 +133,19 @@ internal static class Native
 
     public static IntPtr FindWindowByClass(string className) => FindWindow(className, null);
 
+    // In-memory encryption
+
+    private const uint CRYPTPROTECTMEMORY_SAME_PROCESS = 0;
+    public const int MemoryProtectionBlockSize = 16;
+
+    [DllImport("crypt32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool CryptProtectMemory(byte[] data, uint size, uint flags);
+    [DllImport("crypt32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool CryptUnprotectMemory(byte[] data, uint size, uint flags);
+
+    /// <summary>Encrypts a buffer in place so that only this process can decrypt it.</summary>
+    public static bool ProtectMemory(byte[] data) => CryptProtectMemory(data, (uint)data.Length, CRYPTPROTECTMEMORY_SAME_PROCESS);
+
+    public static bool UnprotectMemory(byte[] data) => CryptUnprotectMemory(data, (uint)data.Length, CRYPTPROTECTMEMORY_SAME_PROCESS);
+
     // Clipboard
 
     private const uint GMEM_MOVEABLE = 0x0002;

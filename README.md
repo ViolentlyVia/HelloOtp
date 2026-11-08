@@ -24,7 +24,7 @@ One admin prompt appears, for the firewall rule that blocks the app from the net
 
 | Action | Result |
 |---|---|
-| Click the icon | Windows Hello, then the code panel |
+| Click the icon | The code panel. Windows Hello asks first if Windows has locked or slept since the last check, or that check is 12 hours old. |
 | Click a code, or press Enter on the selected one | Copies it, closes the panel, and returns to your previous window |
 | Type in the panel | Filters accounts. Up and Down move the selection. |
 | Drag the icon | Moves it. It remembers the monitor. |

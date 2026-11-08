@@ -48,18 +48,35 @@ public static class Vault
     public static UnlockedVault OpenWithRecovery(ReadOnlySpan<byte> file, ReadOnlySpan<byte> recoveryCode) =>
         Open(file, recoveryCode, RecoveryInfo, helloWrap: false);
 
+    /// <summary>Opens with a vault key kept from an earlier unlock.</summary>
+    public static UnlockedVault OpenWithKey(ReadOnlySpan<byte> file, ReadOnlySpan<byte> key)
+    {
+        ReadHeader(file, out var salt, out var hello, out var recovery);
+        return Decrypt(file, SecretBuffer.CopyOf(key), salt, hello, recovery);
+    }
+
     private static UnlockedVault Open(ReadOnlySpan<byte> file, ReadOnlySpan<byte> material, ReadOnlySpan<byte> info, bool helloWrap)
+    {
+        ReadHeader(file, out var salt, out var hello, out var recovery);
+        var key = Unwrap(helloWrap ? hello : recovery, material, salt, info);
+        return Decrypt(file, key, salt, hello, recovery);
+    }
+
+    private static void ReadHeader(ReadOnlySpan<byte> file, out byte[] salt, out byte[] hello, out byte[] recovery)
     {
         if (file.Length < HeaderSize + NonceSize + TagSize || !file[..4].SequenceEqual(Magic))
             throw new VaultException("The vault file is not valid.");
         if (file[4] != Version)
             throw new VaultException("The vault file was made by a different version of HelloOtp.");
 
-        var salt = file.Slice(5, SaltSize).ToArray();
-        var hello = file.Slice(5 + SaltSize, WrapSize).ToArray();
-        var recovery = file.Slice(5 + SaltSize + WrapSize, WrapSize).ToArray();
+        salt = file.Slice(5, SaltSize).ToArray();
+        hello = file.Slice(5 + SaltSize, WrapSize).ToArray();
+        recovery = file.Slice(5 + SaltSize + WrapSize, WrapSize).ToArray();
+    }
 
-        var key = Unwrap(helloWrap ? hello : recovery, material, salt, info);
+    /// <summary>Takes ownership of the key, wiping it on failure.</summary>
+    private static UnlockedVault Decrypt(ReadOnlySpan<byte> file, byte[] key, byte[] salt, byte[] hello, byte[] recovery)
+    {
         var plain = SecretBuffer.Allocate(file.Length - HeaderSize - NonceSize - TagSize);
         try
         {
@@ -192,6 +209,14 @@ public sealed class UnlockedVault : IDisposable
     }
 
     public List<OtpAccount> Accounts { get; }
+
+    /// <summary>A pinned copy of the vault key, for the caller to protect and wipe.</summary>
+    public byte[] CopyKey()
+    {
+        if (_key == null)
+            throw new InvalidOperationException("The vault key has been wiped.");
+        return SecretBuffer.CopyOf(_key);
+    }
 
     /// <summary>Wipes the vault key. The accounts stay readable, but the vault can no longer be saved.</summary>
     public void ForgetKey()

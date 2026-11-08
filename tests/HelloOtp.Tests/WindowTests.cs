@@ -121,6 +121,42 @@ public class WindowTests
         Assert.Equal(1.0, row.Fraction);
     }
 
+    private static IEnumerable<DependencyObject> Descendants(DependencyObject parent)
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            yield return child;
+            foreach (var nested in Descendants(child))
+                yield return nested;
+        }
+    }
+
+    [Fact]
+    public void RightClickMenuUsesThemeColors() => OnSta(() =>
+    {
+        var menu = new FloatingIcon(new AppController()).ContextMenu;
+        menu.Measure(new Size(400, 400));
+        menu.Arrange(new Rect(menu.DesiredSize));
+        menu.UpdateLayout();
+
+        var quit = Descendants(menu).OfType<TextBlock>().Single(text => text.Text == "Quit");
+        Assert.Same(Application.Current.Resources["TextPrimary"], quit.Foreground);
+        var border = Assert.IsType<Border>(VisualTreeHelper.GetChild(menu, 0));
+        Assert.Same(Application.Current.Resources["PanelBackground"], border.Background);
+
+        var output = Environment.GetEnvironmentVariable("HELLOOTP_TEST_RENDER");
+        if (output != null)
+        {
+            var bitmap = new RenderTargetBitmap((int)menu.ActualWidth, (int)menu.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+            bitmap.Render(menu);
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(bitmap));
+            using var stream = File.Create(output + ".menu.png");
+            encoder.Save(stream);
+        }
+    });
+
     [Fact]
     public void OtherWindowsLoad() => OnSta(() =>
     {
