@@ -1,0 +1,37 @@
+<Window x:Class="HelloOtp.ManageWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="HelloOtp accounts" Width="560" Height="480"
+        WindowStartupLocation="CenterScreen" Style="{StaticResource DialogWindow}">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <TextBlock Margin="0,0,0,10" Foreground="{DynamicResource TextSecondary}"
+                   Text="Rename or delete accounts. Changes apply when you save." />
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <ItemsControl x:Name="Accounts">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="0,0,6,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Text="{Binding Issuer, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBox Grid.Column="1" Margin="6,0" Text="{Binding Label, UpdateSourceTrigger=PropertyChanged}" />
+                            <Button Grid.Column="2" Content="Delete" Click="OnDelete" />
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+        <StackPanel Grid.Row="2" Margin="0,12,0,0" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Cancel" IsCancel="True" Click="OnCancel" />
+            <Button Margin="8,0,0,0" Content="Save" Click="OnSave" />
+        </StackPanel>
+    </Grid>
+</Window>

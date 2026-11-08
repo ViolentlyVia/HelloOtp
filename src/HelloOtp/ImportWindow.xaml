@@ -1,0 +1,53 @@
+<Window x:Class="HelloOtp.ImportWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="HelloOtp import" Width="540" SizeToContent="Height" ResizeMode="CanMinimize"
+        WindowStartupLocation="CenterScreen" Style="{StaticResource DialogWindow}">
+    <StackPanel Margin="20">
+        <TextBlock FontSize="15" FontWeight="SemiBold" Text="Import from Google Authenticator" />
+        <TextBlock Margin="0,6,0,8" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}"
+                   Text="Use the export QR codes as images, or paste otpauth-migration:// or otpauth:// links, one per line." />
+        <StackPanel Orientation="Horizontal">
+            <Button Content="Choose QR images..." Click="OnChooseImages" />
+            <Button Margin="8,0,0,0" Content="Paste QR from clipboard" Click="OnPasteImage" />
+        </StackPanel>
+        <TextBox x:Name="LinksBox" Margin="0,10,0,0" Height="64" AcceptsReturn="True" TextWrapping="Wrap"
+                 FontFamily="Consolas" VerticalScrollBarVisibility="Auto" />
+        <Button Margin="0,8,0,0" HorizontalAlignment="Left" Content="Add links" Click="OnAddLinks" />
+
+        <Border Margin="0,16" Height="1" Background="{DynamicResource PanelBorder}" />
+
+        <TextBlock FontSize="15" FontWeight="SemiBold" Text="Or enter a secret" />
+        <Grid Margin="0,8,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="80" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock VerticalAlignment="Center" Text="Site" />
+            <TextBox x:Name="IssuerBox" Grid.Column="1" />
+            <TextBlock Grid.Row="1" VerticalAlignment="Center" Text="Account" />
+            <TextBox x:Name="LabelBox" Grid.Row="1" Grid.Column="1" Margin="0,6,0,0" />
+            <TextBlock Grid.Row="2" VerticalAlignment="Center" Text="Secret" />
+            <TextBox x:Name="SecretBox" Grid.Row="2" Grid.Column="1" Margin="0,6,0,0" FontFamily="Consolas" />
+        </Grid>
+        <Button Margin="0,8,0,0" HorizontalAlignment="Left" Content="Add account" Click="OnAddManual" />
+
+        <Border Margin="0,16" Height="1" Background="{DynamicResource PanelBorder}" />
+
+        <TextBlock x:Name="SummaryText" FontWeight="SemiBold" Text="Nothing ready to save yet." />
+        <ScrollViewer MaxHeight="130" VerticalScrollBarVisibility="Auto" Margin="0,6,0,0">
+            <TextBlock x:Name="DetailText" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}" />
+        </ScrollViewer>
+        <TextBlock x:Name="ErrorText" Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{DynamicResource Danger}" Visibility="Collapsed" />
+
+        <StackPanel Margin="0,16,0,0" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Close" IsCancel="True" Click="OnCancel" />
+            <Button x:Name="SaveButton" Margin="8,0,0,0" Content="Save to vault" IsEnabled="False" Click="OnSave" />
+        </StackPanel>
+    </StackPanel>
+</Window>

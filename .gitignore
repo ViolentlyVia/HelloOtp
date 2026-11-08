@@ -1,0 +1,12 @@
+bin/
+obj/
+publish/
+.vs/
+*.user
+TestResults/
+
+# Never commit real two-factor material.
+*.vault
+vault.bin
+vault.bak
+*.qr.png
