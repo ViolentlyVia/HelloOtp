@@ -19,7 +19,8 @@ public partial class CodePanel : Window
     private readonly List<CodeRow> _rows;
     private readonly ICollectionView _view;
     private readonly DispatcherTimer _timer;
-    private IntPtr _icon;
+    private PixelRect _anchor;
+    private PixelRect _workArea;
     private DateTime _lastActivity = DateTime.UtcNow;
     private bool _closing;
 
@@ -56,13 +57,15 @@ public partial class CodePanel : Window
         Closed += OnClosed;
     }
 
-    public void ShowBeside(IntPtr icon)
+    /// <summary>Shows the panel next to the anchor, inside the work area of the anchor's monitor.</summary>
+    internal void ShowBeside(PixelRect anchor, PixelRect workArea)
     {
-        _icon = icon;
+        _anchor = anchor;
+        _workArea = workArea;
 
-        // Start on the icon's monitor so WPF lays the panel out at that monitor's scale.
-        var rect = Native.GetRect(icon);
-        Native.Move(Native.Handle(this), rect.Left, rect.Top);
+        // Start on the anchor's monitor so WPF lays the panel out at that monitor's scale.
+        var start = Placement.Clamp(anchor.Left, anchor.Top, 1, 1, workArea);
+        Native.Move(Native.Handle(this), start.X, start.Y);
         Show();
         _timer.Start();
     }
@@ -76,7 +79,7 @@ public partial class CodePanel : Window
 
         var handle = Native.Handle(this);
         var panel = Native.GetRect(handle);
-        var position = Placement.BesideIcon(Native.GetRect(_icon), panel.Width, panel.Height, Native.MonitorOf(_icon).WorkArea);
+        var position = Placement.BesideIcon(_anchor, panel.Width, panel.Height, _workArea);
         Native.Move(handle, position.X, position.Y);
         Opacity = 1;
 

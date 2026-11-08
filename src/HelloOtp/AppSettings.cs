@@ -4,9 +4,10 @@ using Microsoft.Win32;
 
 namespace HelloOtp;
 
-/// <summary>Non-secret preferences: only where the icon sits.</summary>
+/// <summary>Non-secret preferences: only where the icon sits and whether it is minimized to the tray.</summary>
 internal sealed class AppSettings
 {
+    public bool HideFloatingIcon { get; set; }
     public string? IconDevice { get; set; }
     public int IconOffsetX { get; set; }
     public int IconOffsetY { get; set; }

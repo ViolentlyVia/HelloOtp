@@ -18,7 +18,9 @@ internal sealed class AppController
     private readonly HelloSession _session = new();
     private readonly DispatcherTimer _sessionTimer = new() { Interval = HelloSession.Lifetime };
     private FloatingIcon? _icon;
+    private TrayIcon? _tray;
     private CodePanel? _panel;
+    private long _panelClosedAt = long.MinValue / 2;
     private bool _busy;
 
     public AppController()
@@ -32,7 +34,10 @@ internal sealed class AppController
     public void Start()
     {
         _icon = new FloatingIcon(this);
-        _icon.Show();
+        if (FloatingIconVisible)
+            _icon.Show();
+        _tray = new TrayIcon(this);
+        _tray.Show();
         SystemEvents.SessionSwitch += OnSessionSwitch;
         SystemEvents.PowerModeChanged += OnPowerModeChanged;
     }
@@ -43,6 +48,20 @@ internal sealed class AppController
         SystemEvents.PowerModeChanged -= OnPowerModeChanged;
         LockAll();
         _clipboard.ClearIfStillOurs();
+        _tray?.Dispose();
+    }
+
+    public bool FloatingIconVisible => !Settings.HideFloatingIcon;
+
+    /// <summary>Shows the floating lock icon or minimizes it to the tray. The choice survives restarts.</summary>
+    public void SetFloatingIconVisible(bool visible)
+    {
+        Settings.HideFloatingIcon = !visible;
+        SaveSettings();
+        if (visible)
+            _icon?.Show();
+        else
+            _icon?.Hide();
     }
 
     public void SaveSettings() => Settings.Save(DataDirectory);
@@ -84,7 +103,24 @@ internal sealed class AppController
         }
     }
 
-    public async void IconClicked(IntPtr previousWindow)
+    public void IconClicked(IntPtr previousWindow)
+    {
+        var handle = Native.Handle(_icon!);
+        OpenPanel(previousWindow, Native.GetRect(handle), Native.MonitorOf(handle).WorkArea);
+    }
+
+    public void TrayClicked(int x, int y)
+    {
+        // Pressing the tray icon takes focus from an open panel, which closes it. Without this
+        // check, the end of that same click would open the panel again.
+        var toggleWindow = System.Windows.Forms.SystemInformation.DoubleClickTime + 500;
+        if (Environment.TickCount64 - _panelClosedAt < toggleWindow)
+            return;
+
+        OpenPanel(Native.PreviousAppWindow(), new PixelRect(x, y, x, y), Native.MonitorAt(x, y).WorkArea);
+    }
+
+    private async void OpenPanel(IntPtr previousWindow, PixelRect anchor, PixelRect workArea)
     {
         if (_panel != null)
         {
@@ -110,8 +146,12 @@ internal sealed class AppController
 
             vault.ForgetKey();
             _panel = new CodePanel(vault, previousWindow, code => _clipboard.SetText(code));
-            _panel.Closed += (_, _) => _panel = null;
-            _panel.ShowBeside(Native.Handle(_icon!));
+            _panel.Closed += (_, _) =>
+            {
+                _panel = null;
+                _panelClosedAt = Environment.TickCount64;
+            };
+            _panel.ShowBeside(anchor, workArea);
         }
         finally
         {

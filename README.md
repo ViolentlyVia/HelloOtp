@@ -28,7 +28,10 @@ One admin prompt appears, for the firewall rule that blocks the app from the net
 | Click a code, or press Enter on the selected one | Copies it, closes the panel, and returns to your previous window |
 | Type in the panel | Filters accounts. Up and Down move the selection. |
 | Drag the icon | Moves it. It remembers the monitor. |
-| Right-click the icon | Import, add, manage, start with Windows, quit |
+| Right-click the icon | Minimize to tray, import, add, manage, start with Windows, quit |
+| Click the tray icon | Opens the code panel next to the tray |
+| Double-click the tray icon | Shows the floating lock icon, or minimizes it to the tray. It stays that way after a restart. |
+| Right-click the tray icon | The same actions as the floating icon's menu |
 
 The panel locks on Esc, clicking away, 60 seconds idle, sleep, or locking Windows. The clipboard clears after 30 seconds.
 

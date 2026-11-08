@@ -133,6 +133,81 @@ internal static class Native
 
     public static IntPtr FindWindowByClass(string className) => FindWindow(className, null);
 
+    // Finding the window to return to
+
+    private const long WS_EX_TOPMOST = 0x00000008;
+    private const int DWMWA_CLOAKED = 14;
+
+    private static readonly HashSet<string> ShellClasses = new(StringComparer.Ordinal)
+    {
+        "Shell_TrayWnd",
+        "Shell_SecondaryTrayWnd",
+        "NotifyIconOverflowWindow",
+        "TopLevelWindowForOverflowXamlIsland",
+        "XamlExplorerHostIslandWindow",
+        "Progman",
+        "WorkerW",
+    };
+
+    private delegate bool WindowEnumProc(IntPtr window, IntPtr data);
+
+    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool EnumWindows(WindowEnumProc callback, IntPtr data);
+    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool IsWindowVisible(IntPtr window);
+    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool IsIconic(IntPtr window);
+    [DllImport("user32.dll", EntryPoint = "GetClassNameW", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr window, char[] buffer, int size);
+    [DllImport("user32.dll", EntryPoint = "GetWindowTextLengthW", CharSet = CharSet.Unicode)] private static extern int GetWindowTextLength(IntPtr window);
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+    [DllImport("user32.dll")] private static extern IntPtr MonitorFromPoint(POINT point, uint flags);
+    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] public static extern bool DestroyIcon(IntPtr icon);
+    [DllImport("dwmapi.dll")] private static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out int value, int size);
+
+    public static MonitorArea MonitorAt(int x, int y) =>
+        ToArea(MonitorFromPoint(new POINT { X = x, Y = y }, MONITOR_DEFAULTTONEAREST));
+
+    /// <summary>
+    /// The app window to return to after using the tray. Clicking the tray makes the taskbar the
+    /// foreground window, so this finds the frontmost real app window behind it.
+    /// </summary>
+    public static IntPtr PreviousAppWindow()
+    {
+        var foreground = GetForegroundWindow();
+        if (foreground != IntPtr.Zero && !IsShellWindow(foreground))
+            return foreground;
+
+        var found = IntPtr.Zero;
+        var ownProcess = (uint)Environment.ProcessId;
+        EnumWindows((window, _) =>
+        {
+            if (!IsReturnTarget(window, ownProcess))
+                return true;
+            found = window;
+            return false;
+        }, IntPtr.Zero);
+        return found;
+    }
+
+    private static bool IsShellWindow(IntPtr window)
+    {
+        var buffer = new char[128];
+        var length = GetClassName(window, buffer, buffer.Length);
+        return ShellClasses.Contains(new string(buffer, 0, length));
+    }
+
+    private static bool IsReturnTarget(IntPtr window, uint ownProcess)
+    {
+        if (!IsWindowVisible(window) || IsIconic(window) || GetWindowTextLength(window) == 0 || IsShellWindow(window))
+            return false;
+        GetWindowThreadProcessId(window, out var process);
+        if (process == ownProcess)
+            return false;
+        var style = GetWindowLongPtr(window, GWL_EXSTYLE).ToInt64();
+        if ((style & (WS_EX_TOOLWINDOW | WS_EX_TOPMOST)) != 0)
+            return false;
+
+        // Suspended store apps and windows on other virtual desktops report as visible but are cloaked.
+        return DwmGetWindowAttribute(window, DWMWA_CLOAKED, out var cloaked, sizeof(int)) != 0 || cloaked == 0;
+    }
+
     // In-memory encryption
 
     private const uint CRYPTPROTECTMEMORY_SAME_PROCESS = 0;

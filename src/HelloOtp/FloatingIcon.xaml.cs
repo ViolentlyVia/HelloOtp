@@ -100,6 +100,8 @@ public partial class FloatingIcon : Window
 
     private void OnMenuOpened(object sender, RoutedEventArgs e) => StartupItem.IsChecked = StartWithWindows.IsEnabled;
 
+    private void OnMinimize(object sender, RoutedEventArgs e) => _controller.SetFloatingIconVisible(false);
+
     private void OnImport(object sender, RoutedEventArgs e) => _controller.OpenImport(manualFocus: false);
 
     private void OnAdd(object sender, RoutedEventArgs e) => _controller.OpenImport(manualFocus: true);

@@ -158,6 +158,37 @@ public class WindowTests
     });
 
     [Fact]
+    public void TrayMenuAndImageBuild() => OnSta(() =>
+    {
+        using var tray = new TrayIcon(new AppController());
+        var labels = tray.Menu.Items.Cast<System.Windows.Forms.ToolStripItem>().Select(item => item.Text).ToList();
+        Assert.Contains("Open codes", labels);
+        Assert.Contains("Show floating icon", labels);
+        Assert.Contains("Quit", labels);
+        Assert.True(tray.Image.Width > 0);
+
+        var output = Environment.GetEnvironmentVariable("HELLOOTP_TEST_RENDER");
+        if (output != null)
+        {
+            ((System.Windows.Forms.ToolStripMenuItem)tray.Menu.Items[1]).Checked = true;
+            tray.Menu.PerformLayout();
+            using var bitmap = new System.Drawing.Bitmap(tray.Menu.PreferredSize.Width, tray.Menu.PreferredSize.Height);
+            tray.Menu.Size = tray.Menu.PreferredSize;
+            tray.Menu.DrawToBitmap(bitmap, new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height));
+            bitmap.Save(output + ".tray.png");
+            using var icon = tray.Image.ToBitmap();
+            icon.Save(output + ".trayicon.png");
+        }
+    });
+
+    [Fact]
+    public void FloatingIconCanMinimizeToTray() => OnSta(() =>
+    {
+        var menu = new FloatingIcon(new AppController()).ContextMenu;
+        Assert.Contains(menu.Items.OfType<MenuItem>(), item => (string)item.Header == "Minimize to tray");
+    });
+
+    [Fact]
     public void OtherWindowsLoad() => OnSta(() =>
     {
         var controller = new AppController();

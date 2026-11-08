@@ -7,6 +7,8 @@
         MouseLeftButtonDown="OnMouseDown" MouseMove="OnMouseMove" MouseLeftButtonUp="OnMouseUp">
     <Window.ContextMenu>
         <ContextMenu Opened="OnMenuOpened">
+            <MenuItem Header="Minimize to tray" Click="OnMinimize" />
+            <Separator />
             <MenuItem Header="Import from Google Authenticator..." Click="OnImport" />
             <MenuItem Header="Add account..." Click="OnAdd" />
             <MenuItem Header="Manage accounts..." Click="OnManage" />
