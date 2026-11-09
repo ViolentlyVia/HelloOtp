@@ -8,5 +8,6 @@ TestResults/
 # Never commit real two-factor material.
 *.vault
 vault.bin
-vault.bak
+*.bak
+*.hotp
 *.qr.png
