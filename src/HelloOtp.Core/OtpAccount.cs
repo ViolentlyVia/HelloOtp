@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+
 namespace HelloOtp.Core;
 
 /// <summary>One two-factor account. Takes ownership of the secret buffer and wipes it on dispose.</summary>
@@ -14,20 +16,60 @@ public sealed class OtpAccount : IDisposable
         if (!Enum.IsDefined(algorithm))
             throw new FormatException("The hash algorithm is not supported.");
 
-        Issuer = issuer;
-        Label = label;
+        _issuer = issuer;
+        _label = label;
         Secret = secret;
         Algorithm = algorithm;
         Digits = digits;
         Period = period;
+        ModifiedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
     }
 
-    public string Issuer { get; set; }
-    public string Label { get; set; }
+    private string _issuer;
+    private string _label;
+
+    public string Issuer
+    {
+        get => _issuer;
+        set
+        {
+            if (value == _issuer)
+                return;
+            _issuer = value;
+            ModifiedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        }
+    }
+
+    public string Label
+    {
+        get => _label;
+        set
+        {
+            if (value == _label)
+                return;
+            _label = value;
+            ModifiedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        }
+    }
+
     public byte[] Secret { get; }
     public OtpAlgorithm Algorithm { get; }
     public int Digits { get; }
     public int Period { get; }
+
+    /// <summary>When this account was added or renamed, in Unix milliseconds. Sync keeps the latest. Zero for accounts from before sync.</summary>
+    public long ModifiedAt { get; set; }
+
+    /// <summary>A hash naming this secret, so a deletion can be remembered without keeping the secret.</summary>
+    public byte[] Identity()
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        hash.AppendData("HelloOtp account identity v1"u8);
+        hash.AppendData(Secret);
+        hash.AppendData(new[] { (byte)Algorithm, (byte)Digits });
+        hash.AppendData(BitConverter.GetBytes(Period));
+        return hash.GetHashAndReset();
+    }
 
     public string CodeAt(long unixSeconds) => Totp.Compute(Secret, unixSeconds, Period, Algorithm, Digits);
 

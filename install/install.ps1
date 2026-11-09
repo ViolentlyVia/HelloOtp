@@ -1,4 +1,5 @@
-# Builds HelloOtp and installs it for the current user.
+# Installs HelloOtp for the current user. From a release zip it uses the HelloOtp.exe next to
+# this script. From a copy of the source it builds the exe first, which needs the .NET 10 SDK.
 # -NoFirewall skips the outbound block rule (the only step that needs an admin prompt).
 # -NoStartup skips starting HelloOtp at sign-in.
 param(
@@ -8,22 +9,28 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$repository = Split-Path $PSScriptRoot -Parent
-$publish = Join-Path $repository 'publish'
+$source = Join-Path $PSScriptRoot 'HelloOtp.exe'
 $target = Join-Path $env:LOCALAPPDATA 'Programs\HelloOtp'
 $exe = Join-Path $target 'HelloOtp.exe'
 $ruleName = 'HelloOtp block outbound'
 
-dotnet publish (Join-Path $repository 'src\HelloOtp\HelloOtp.csproj') -c Release -r win-x64 --self-contained true `
-    -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $publish
-if ($LASTEXITCODE -ne 0) { throw 'The build failed.' }
+if (-not (Test-Path $source)) {
+    $repository = Split-Path $PSScriptRoot -Parent
+    $publish = Join-Path $repository 'publish'
+    dotnet publish (Join-Path $repository 'src\HelloOtp\HelloOtp.csproj') -c Release -r win-x64 --self-contained true `
+        -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $publish
+    if ($LASTEXITCODE -ne 0) { throw 'The build failed.' }
+    $source = Join-Path $publish 'HelloOtp.exe'
+}
 
 Get-Process -Name HelloOtp -ErrorAction SilentlyContinue |
     Where-Object { $_.Path -eq $exe } |
     ForEach-Object { $_.Kill(); $_.WaitForExit() }
 
 New-Item -ItemType Directory -Force -Path $target | Out-Null
-Copy-Item (Join-Path $publish 'HelloOtp.exe') $exe -Force
+Copy-Item $source $exe -Force
+# A downloaded zip marks its files as from the internet, which would warn at every sign-in.
+Unblock-File $exe
 
 if (-not $NoFirewall) {
     $script = @"

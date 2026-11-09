@@ -15,6 +15,12 @@
             </Grid.RowDefinitions>
 
             <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Button x:Name="AddButton" Grid.Column="1" Margin="6,0,0,0" Padding="11,0" Content="+" FontSize="17"
+                        Focusable="False" ToolTip="Add an account by selecting its QR code on screen" Click="OnAddClicked" />
                 <TextBox x:Name="SearchBox" TextChanged="OnSearchChanged" FontSize="14" />
                 <TextBlock Text="Search" Margin="9,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"
                            Foreground="{DynamicResource TextSecondary}" FontSize="14">
@@ -33,7 +39,7 @@
 
             <TextBlock x:Name="EmptyText" Grid.Row="1" Margin="8,12" TextWrapping="Wrap" Visibility="Collapsed"
                        Foreground="{DynamicResource TextSecondary}"
-                       Text="No accounts yet. Right-click the icon and choose Import." />
+                       Text="No accounts yet. Press + and drag around a QR code on your screen." />
 
             <ListBox x:Name="Rows" Grid.Row="1" BorderThickness="0" Background="Transparent" MaxHeight="490"
                      Foreground="{DynamicResource TextPrimary}"

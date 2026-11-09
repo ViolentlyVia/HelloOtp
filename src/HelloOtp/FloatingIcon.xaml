@@ -12,6 +12,7 @@
             <MenuItem Header="Import from Google Authenticator..." Click="OnImport" />
             <MenuItem Header="Add account..." Click="OnAdd" />
             <MenuItem Header="Manage accounts..." Click="OnManage" />
+            <MenuItem Header="Sync between PCs..." Click="OnSync" />
             <Separator />
             <MenuItem x:Name="StartupItem" Header="Start with Windows" IsCheckable="True" Click="OnToggleStartup" />
             <Separator />

@@ -108,6 +108,8 @@ public partial class FloatingIcon : Window
 
     private void OnManage(object sender, RoutedEventArgs e) => _controller.OpenManage();
 
+    private void OnSync(object sender, RoutedEventArgs e) => _controller.OpenSync();
+
     private void OnToggleStartup(object sender, RoutedEventArgs e) => StartWithWindows.IsEnabled = StartupItem.IsChecked;
 
     private void OnQuit(object sender, RoutedEventArgs e) => Application.Current.Shutdown();

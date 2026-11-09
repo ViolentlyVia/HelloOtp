@@ -1,16 +1,20 @@
 # HelloOtp
 
-A small floating icon for Windows. Click it, pass Windows Hello, and click a two-factor code to copy it. Everything stays on your PC.
+A small floating icon for Windows. Click it, pass Windows Hello, and click a two-factor code to copy it. Everything stays on your PC unless you turn on sync, which shares only encrypted files through a folder you choose.
 
 ## Install
 
-Needs the .NET 10 SDK to build, and Windows Hello (PIN, fingerprint or face) set up.
+Needs Windows 10 2004 or later with Windows Hello (PIN, fingerprint or face) set up.
+
+Download `HelloOtp-vX.Y.Z-win-x64.zip` from [Releases](../../releases), extract it, and run this in the extracted folder:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File install\install.ps1
+powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
 One admin prompt appears, for the firewall rule that blocks the app from the network. Installs to `%LOCALAPPDATA%\Programs\HelloOtp` and starts at sign-in. Use `-NoFirewall` or `-NoStartup` to skip those steps.
+
+To build from source instead, install the .NET 10 SDK and run `install\install.ps1` from a copy of this repository.
 
 ## First run
 
@@ -27,6 +31,7 @@ One admin prompt appears, for the firewall rule that blocks the app from the net
 | Click the icon | The code panel. Windows Hello asks first if Windows has locked or slept since the last check, or that check is 12 hours old. |
 | Click a code, or press Enter on the selected one | Copies it, closes the panel, and returns to your previous window |
 | Type in the panel | Filters accounts. Up and Down move the selection. |
+| Press + in the panel | Freezes the screen so you can drag around a QR code. Its account is added to the vault. |
 | Drag the icon | Moves it. It remembers the monitor. |
 | Right-click the icon | Minimize to tray, import, add, manage, start with Windows, quit |
 | Click the tray icon | Opens the code panel next to the tray |
@@ -34,6 +39,16 @@ One admin prompt appears, for the firewall rule that blocks the app from the net
 | Right-click the tray icon | The same actions as the floating icon's menu |
 
 The panel locks on Esc, clicking away, 60 seconds idle, sleep, or locking Windows. The clipboard clears after 30 seconds.
+
+## Sync between PCs
+
+1. On the PC that has your accounts, right-click the icon, choose **Sync between PCs...**, and pick a folder your PCs can all reach, such as one in OneDrive or on a network share.
+2. Wait for the file to reach the other PC. Install HelloOtp there and choose the same option and folder.
+3. Enter your recovery code and pass Windows Hello. If that PC already had accounts, they are merged in, and it uses the first PC's recovery code from then on.
+
+After that, each PC syncs when you open your codes and after you add or remove an account, with no extra Windows Hello prompts. Removing an account removes it everywhere. If the folder is unavailable, your codes still open and sync tries again later.
+
+Choose the same menu item to see the last sync or turn sync off on that PC.
 
 ## Recovery
 
@@ -53,4 +68,6 @@ See [docs/threat-model.md](docs/threat-model.md) for what this does and does not
 dotnet test
 ```
 
-To remove the app, run `install\uninstall.ps1`. The vault is kept unless you pass `-DeleteVault`.
+`install\build-release.ps1` builds the release zip from committed code.
+
+To remove the app, run `uninstall.ps1` from the release zip or the `install` folder. The vault is kept unless you pass `-DeleteVault`.

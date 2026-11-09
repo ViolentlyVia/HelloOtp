@@ -54,6 +54,7 @@ internal sealed class TrayIcon : IDisposable
         Add("Import from Google Authenticator...", () => controller.OpenImport(manualFocus: false));
         Add("Add account...", () => controller.OpenImport(manualFocus: true));
         Add("Manage accounts...", controller.OpenManage);
+        Add("Sync between PCs...", controller.OpenSync);
         Menu.Items.Add(new ToolStripSeparator());
         _startupItem = Add("Start with Windows", () => StartWithWindows.IsEnabled = !StartWithWindows.IsEnabled);
         Add("Quit", () => System.Windows.Application.Current.Shutdown());

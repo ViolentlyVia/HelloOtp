@@ -15,6 +15,8 @@ public sealed class VaultException : Exception
 /// the recovery code.
 ///
 /// Layout: "HOTP", version, salt(32), hello wrap(60), recovery wrap(60), body nonce(12), body tag(16), body.
+/// A sync file has the same layout with an empty Hello wrap, because each PC has its own Hello key.
+/// Version 2 adds a modified time to each account and a list of deleted accounts.
 /// </summary>
 public static class Vault
 {
@@ -23,7 +25,8 @@ public static class Vault
     internal const int TagSize = 16;
     internal const int WrapSize = NonceSize + TagSize + KeySize;
     internal const int SaltSize = 32;
-    internal const byte Version = 1;
+    internal const byte Version = 2;
+    private const byte FirstVersion = 1;
     internal const int HeaderSize = 5 + SaltSize + WrapSize + WrapSize;
     internal static ReadOnlySpan<byte> Magic => "HOTP"u8;
     internal static ReadOnlySpan<byte> HelloInfo => "HelloOtp hello wrap v1"u8;
@@ -39,7 +42,8 @@ public static class Vault
             salt,
             Wrap(key, helloSignature, salt, HelloInfo),
             Wrap(key, recoveryCode, salt, RecoveryInfo),
-            new List<OtpAccount>());
+            new List<OtpAccount>(),
+            new List<Tombstone>());
     }
 
     public static UnlockedVault OpenWithHello(ReadOnlySpan<byte> file, ReadOnlySpan<byte> helloSignature) =>
@@ -66,7 +70,7 @@ public static class Vault
     {
         if (file.Length < HeaderSize + NonceSize + TagSize || !file[..4].SequenceEqual(Magic))
             throw new VaultException("The vault file is not valid.");
-        if (file[4] != Version)
+        if (file[4] is not (FirstVersion or Version))
             throw new VaultException("The vault file was made by a different version of HelloOtp.");
 
         salt = file.Slice(5, SaltSize).ToArray();
@@ -89,7 +93,8 @@ public static class Vault
                     plain,
                     file[..HeaderSize]);
             }
-            return new UnlockedVault(key, salt, hello, recovery, ReadAccounts(plain));
+            var (accounts, tombstones) = ReadBody(plain, file[4]);
+            return new UnlockedVault(key, salt, hello, recovery, accounts, tombstones);
         }
         catch (Exception e) when (e is CryptographicException or ArgumentException or IndexOutOfRangeException)
         {
@@ -150,16 +155,18 @@ public static class Vault
 
     private static byte[] WrapAad(byte[] salt)
     {
+        // Always the first version: wraps made before later format changes must keep opening.
         var aad = new byte[5 + SaltSize];
         Magic.CopyTo(aad);
-        aad[4] = Version;
+        aad[4] = FirstVersion;
         salt.CopyTo(aad, 5);
         return aad;
     }
 
-    private static List<OtpAccount> ReadAccounts(ReadOnlySpan<byte> plain)
+    private static (List<OtpAccount> Accounts, List<Tombstone> Tombstones) ReadBody(ReadOnlySpan<byte> plain, byte version)
     {
         var accounts = new List<OtpAccount>();
+        var tombstones = new List<Tombstone>();
         var position = 0;
         var count = ReadInt(plain, ref position);
         for (var i = 0; i < count; i++)
@@ -170,9 +177,30 @@ public static class Vault
             var algorithm = (OtpAlgorithm)plain[position++];
             var digits = (int)plain[position++];
             var period = ReadInt(plain, ref position);
-            accounts.Add(new OtpAccount(issuer, label, secret, algorithm, digits, period));
+            var account = new OtpAccount(issuer, label, secret, algorithm, digits, period) { ModifiedAt = 0 };
+            if (version >= 2)
+                account.ModifiedAt = ReadLong(plain, ref position);
+            accounts.Add(account);
         }
-        return accounts;
+
+        if (version >= 2)
+        {
+            var deleted = ReadInt(plain, ref position);
+            for (var i = 0; i < deleted; i++)
+            {
+                var id = plain.Slice(position, Tombstone.IdSize).ToArray();
+                position += Tombstone.IdSize;
+                tombstones.Add(new Tombstone(id, ReadLong(plain, ref position)));
+            }
+        }
+        return (accounts, tombstones);
+    }
+
+    private static long ReadLong(ReadOnlySpan<byte> data, ref int position)
+    {
+        var value = BinaryPrimitives.ReadInt64LittleEndian(data[position..]);
+        position += 8;
+        return value;
     }
 
     private static int ReadInt(ReadOnlySpan<byte> data, ref int position)
@@ -191,6 +219,21 @@ public static class Vault
     }
 }
 
+/// <summary>Remembers that an account was deleted, so sync does not bring it back. Holds a hash, never the secret.</summary>
+public sealed class Tombstone
+{
+    internal const int IdSize = 32;
+
+    public Tombstone(byte[] id, long deletedAt)
+    {
+        Id = id;
+        DeletedAt = deletedAt;
+    }
+
+    public byte[] Id { get; }
+    public long DeletedAt { get; set; }
+}
+
 /// <summary>A decrypted vault. Dispose wipes the key and every secret.</summary>
 public sealed class UnlockedVault : IDisposable
 {
@@ -199,16 +242,33 @@ public sealed class UnlockedVault : IDisposable
     private byte[] _helloWrap;
     private readonly byte[] _recoveryWrap;
 
-    internal UnlockedVault(byte[] key, byte[] salt, byte[] helloWrap, byte[] recoveryWrap, List<OtpAccount> accounts)
+    internal UnlockedVault(byte[] key, byte[] salt, byte[] helloWrap, byte[] recoveryWrap, List<OtpAccount> accounts, List<Tombstone> tombstones)
     {
         _key = key;
         _salt = salt;
         _helloWrap = helloWrap;
         _recoveryWrap = recoveryWrap;
         Accounts = accounts;
+        Tombstones = tombstones;
     }
 
     public List<OtpAccount> Accounts { get; }
+
+    public List<Tombstone> Tombstones { get; }
+
+    /// <summary>Removes and wipes an account, remembering the deletion so it reaches other PCs.</summary>
+    public void Remove(OtpAccount account, long? deletedAt = null)
+    {
+        Accounts.Remove(account);
+        var id = account.Identity();
+        var time = deletedAt ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var existing = Tombstones.FirstOrDefault(tombstone => tombstone.Id.AsSpan().SequenceEqual(id));
+        if (existing == null)
+            Tombstones.Add(new Tombstone(id, time));
+        else
+            existing.DeletedAt = Math.Max(existing.DeletedAt, time);
+        account.Dispose();
+    }
 
     /// <summary>A pinned copy of the vault key, for the caller to protect and wipe.</summary>
     public byte[] CopyKey()
@@ -233,7 +293,12 @@ public sealed class UnlockedVault : IDisposable
         _helloWrap = Vault.Wrap(_key, helloSignature, _salt, Vault.HelloInfo);
     }
 
-    public byte[] ToFileBytes()
+    public byte[] ToFileBytes() => Serialize(_helloWrap);
+
+    /// <summary>The form written to the shared folder. Opens with the vault key or the recovery code, never with Hello.</summary>
+    public byte[] ToSyncBytes() => Serialize(new byte[Vault.WrapSize]);
+
+    private byte[] Serialize(byte[] helloWrap)
     {
         if (_key == null)
             throw new InvalidOperationException("The vault key has been wiped.");
@@ -245,7 +310,7 @@ public sealed class UnlockedVault : IDisposable
             Vault.Magic.CopyTo(file);
             file[4] = Vault.Version;
             _salt.CopyTo(file, 5);
-            _helloWrap.CopyTo(file, 5 + Vault.SaltSize);
+            helloWrap.CopyTo(file, 5 + Vault.SaltSize);
             _recoveryWrap.CopyTo(file, 5 + Vault.SaltSize + Vault.WrapSize);
 
             var nonce = file.AsSpan(Vault.HeaderSize, Vault.NonceSize);
@@ -272,8 +337,9 @@ public sealed class UnlockedVault : IDisposable
         {
             size += 4 + Encoding.UTF8.GetByteCount(account.Issuer);
             size += 4 + Encoding.UTF8.GetByteCount(account.Label);
-            size += 4 + account.Secret.Length + 2 + 4;
+            size += 4 + account.Secret.Length + 2 + 4 + 8;
         }
+        size += 4 + Tombstones.Count * (Tombstone.IdSize + 8);
 
         var plain = SecretBuffer.Allocate(size);
         var position = 0;
@@ -286,8 +352,23 @@ public sealed class UnlockedVault : IDisposable
             plain[position++] = (byte)account.Algorithm;
             plain[position++] = (byte)account.Digits;
             WriteInt(plain, ref position, account.Period);
+            WriteLong(plain, ref position, account.ModifiedAt);
+        }
+
+        WriteInt(plain, ref position, Tombstones.Count);
+        foreach (var tombstone in Tombstones)
+        {
+            tombstone.Id.CopyTo(plain, position);
+            position += Tombstone.IdSize;
+            WriteLong(plain, ref position, tombstone.DeletedAt);
         }
         return plain;
+    }
+
+    private static void WriteLong(Span<byte> data, ref int position, long value)
+    {
+        BinaryPrimitives.WriteInt64LittleEndian(data[position..], value);
+        position += 8;
     }
 
     private static void WriteInt(Span<byte> data, ref int position, int value)

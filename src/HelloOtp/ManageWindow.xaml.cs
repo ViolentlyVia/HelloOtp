@@ -28,7 +28,7 @@ public partial class ManageWindow : Window
             return;
         var name = account.Issuer.Length > 0 ? account.Issuer : account.Label;
         var answer = MessageBox.Show(this,
-            $"Remove {name} from the vault? After you save, its codes can only come back by importing it again.",
+            $"Remove {name} from the vault? After you save, its codes can only come back by importing it again. If sync is on, it is also removed from your other PCs.",
             "HelloOtp", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
         if (answer == MessageBoxResult.Yes)
             _accounts.Remove(account);
@@ -38,8 +38,7 @@ public partial class ManageWindow : Window
     {
         foreach (var account in _vault.Accounts.Where(account => !_accounts.Contains(account)).ToList())
         {
-            _vault.Accounts.Remove(account);
-            account.Dispose();
+            _vault.Remove(account);
         }
         _save(_vault.ToFileBytes());
         Close();

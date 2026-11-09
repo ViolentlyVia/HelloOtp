@@ -21,6 +21,24 @@ Two-factor secrets, at rest and while locked.
 - **A compromised Windows or firmware.**
 - **Displayed codes and text you type.** Six-digit codes and anything typed in the import window, including a pasted secret, pass through .NET strings, which cannot be wiped. Decoded secrets are kept in pinned byte buffers and wiped.
 - **Your export QR codes.** They contain every secret in plain form. Delete the images after importing.
+- **The frozen screen while adding from a QR code.** The picture of your screen is held in memory until you finish selecting. It is never saved to disk, and the overlay is excluded from screen capture. HelloOtp wipes its own copy, but Windows graphics memory cannot be wiped.
+
+## Sync
+
+Sync is off until you choose a folder. Each PC then writes its own encrypted `.hotp` file there and reads the others. HelloOtp only reads and writes files. OneDrive, or Windows file sharing for a network folder, moves them.
+
+| Situation | Result |
+|---|---|
+| The folder's provider or someone with access copies the files | They get AES-256-GCM ciphertext. Without the recovery code the vault key cannot be recovered. |
+| Someone alters a file or adds their own | It fails authentication and is ignored. Only a holder of the vault key can make a valid file. |
+| Someone restores an old copy of a file | Nothing is undone. Newer changes and deletions always win a merge. |
+
+What sync changes:
+
+- **Your recovery code matters more.** A sync file has no Windows Hello protection, because Hello keys cannot leave a PC. Anyone with the recovery code and access to the folder can read every account, from anywhere. Keep the code offline.
+- **Deleted accounts can linger in old copies.** A deletion removes the secret from each PC's file once that PC syncs, but cloud version history may keep older encrypted copies. If a code leaks, change it at the service as well.
+- **A retired PC's file stays in the folder** until you turn sync off on that PC or delete the file.
+- **Merges trust the Windows clock.** With two conflicting changes, the later timestamp wins.
 
 ## Key design
 
@@ -37,6 +55,7 @@ After a Hello check the vault key stays in memory, encrypted so only this proces
 
 - The installer adds an outbound Windows Firewall block rule for `HelloOtp.exe`. This is the enforcement.
 - A unit test fails if HelloOtp's own assemblies reference networking namespaces.
+- Sync adds no network code. It uses ordinary file reads and writes on a folder you choose, and the firewall rule stays on.
 - There is no updater, telemetry or crash reporting.
 - Windows Hello runs in a Windows system process, not in HelloOtp.
 - NuGet is used only when building from source.

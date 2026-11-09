@@ -17,7 +17,7 @@ public class WindowTests
     private static readonly object Gate = new();
     private static App? _app;
 
-    private static void OnSta(Action action)
+    internal static void OnSta(Action action)
     {
         Exception? failure = null;
         var thread = new Thread(() =>
@@ -71,7 +71,7 @@ public class WindowTests
     public void CodePanelListsAccountsSorted() => OnSta(() =>
     {
         var vault = SampleVault();
-        var panel = new CodePanel(vault, IntPtr.Zero, _ => true);
+        var panel = new CodePanel(vault, IntPtr.Zero, _ => true, () => { });
         var rows = panel.Rows.Items.Cast<CodeRow>().ToList();
         Assert.Equal(new[] { "no-issuer", "Alpha", "Zeta" }, rows.Select(row => row.Title));
         Assert.Equal(7, rows[0].Display.Length);
@@ -98,7 +98,7 @@ public class WindowTests
     public void CodePanelFilters() => OnSta(() =>
     {
         var vault = SampleVault();
-        var panel = new CodePanel(vault, IntPtr.Zero, _ => true);
+        var panel = new CodePanel(vault, IntPtr.Zero, _ => true, () => { });
         panel.SearchBox.Text = "alp";
         Assert.Equal("Alpha", Assert.Single(panel.Rows.Items.Cast<CodeRow>()).Title);
         Assert.Equal(0, panel.Rows.SelectedIndex);

@@ -29,6 +29,18 @@ public static class Placement
         return Clamp(x, icon.Top, width, height, work);
     }
 
+    /// <summary>Converts a selection dragged in a scaled view into pixels of the image it shows, kept inside the image.</summary>
+    public static PixelRect SelectionToPixels(double x1, double y1, double x2, double y2, double viewWidth, double viewHeight, int pixelWidth, int pixelHeight)
+    {
+        var scaleX = pixelWidth / viewWidth;
+        var scaleY = pixelHeight / viewHeight;
+        var left = Math.Clamp((int)Math.Floor(Math.Min(x1, x2) * scaleX), 0, pixelWidth);
+        var top = Math.Clamp((int)Math.Floor(Math.Min(y1, y2) * scaleY), 0, pixelHeight);
+        var right = Math.Clamp((int)Math.Ceiling(Math.Max(x1, x2) * scaleX), 0, pixelWidth);
+        var bottom = Math.Clamp((int)Math.Ceiling(Math.Max(y1, y2) * scaleY), 0, pixelHeight);
+        return new PixelRect(left, top, right, bottom);
+    }
+
     /// <summary>The icon's saved spot, or the primary monitor's top-right corner if that monitor is gone.</summary>
     public static (int X, int Y) RestoreIcon(string? device, int offsetX, int offsetY, int size, IReadOnlyList<MonitorArea> monitors)
     {

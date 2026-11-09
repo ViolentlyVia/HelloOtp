@@ -16,6 +16,7 @@ public partial class CodePanel : Window
     private readonly UnlockedVault _vault;
     private readonly IntPtr _previousWindow;
     private readonly Func<string, bool> _copy;
+    private readonly Action _add;
     private readonly List<CodeRow> _rows;
     private readonly ICollectionView _view;
     private readonly DispatcherTimer _timer;
@@ -24,11 +25,12 @@ public partial class CodePanel : Window
     private DateTime _lastActivity = DateTime.UtcNow;
     private bool _closing;
 
-    internal CodePanel(UnlockedVault vault, IntPtr previousWindow, Func<string, bool> copy)
+    internal CodePanel(UnlockedVault vault, IntPtr previousWindow, Func<string, bool> copy, Action add)
     {
         _vault = vault;
         _previousWindow = previousWindow;
         _copy = copy;
+        _add = add;
         InitializeComponent();
 
         _rows = vault.Accounts
@@ -146,6 +148,12 @@ public partial class CodePanel : Window
         var filter = SearchBox.Text.Trim();
         _view.Filter = filter.Length == 0 ? null : item => ((CodeRow)item).Matches(filter);
         Rows.SelectedIndex = Rows.Items.Count > 0 ? 0 : -1;
+    }
+
+    private void OnAddClicked(object sender, RoutedEventArgs e)
+    {
+        RequestClose();
+        _add();
     }
 
     private void OnRowClicked(object sender, MouseButtonEventArgs e)

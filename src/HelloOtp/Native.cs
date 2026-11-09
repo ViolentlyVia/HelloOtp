@@ -118,6 +118,23 @@ internal static class Native
         return monitors;
     }
 
+    /// <summary>The full area of every monitor, including the taskbar.</summary>
+    public static List<PixelRect> MonitorBounds()
+    {
+        var bounds = new List<PixelRect>();
+        EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (monitor, _, _, _) =>
+        {
+            var info = new MONITORINFOEX { cbSize = Marshal.SizeOf<MONITORINFOEX>(), szDevice = "" };
+            GetMonitorInfo(monitor, ref info);
+            bounds.Add(new PixelRect(info.rcMonitor.Left, info.rcMonitor.Top, info.rcMonitor.Right, info.rcMonitor.Bottom));
+            return true;
+        }, IntPtr.Zero);
+        return bounds;
+    }
+
+    public static void SetBounds(IntPtr window, PixelRect bounds) =>
+        SetWindowPos(window, IntPtr.Zero, bounds.Left, bounds.Top, bounds.Width, bounds.Height, SWP_NOZORDER | SWP_NOACTIVATE);
+
     private static MonitorArea ToArea(IntPtr monitor)
     {
         var info = new MONITORINFOEX { cbSize = Marshal.SizeOf<MONITORINFOEX>(), szDevice = "" };

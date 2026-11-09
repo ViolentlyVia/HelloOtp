@@ -7,11 +7,15 @@ public partial class RecoveryWindow : Window
 {
     private readonly Func<byte[], bool> _tryOpen;
 
-    internal RecoveryWindow(string reason, Func<byte[], bool> tryOpen)
+    internal RecoveryWindow(string reason, Func<byte[], bool> tryOpen, string? heading = null, string? action = null)
     {
         _tryOpen = tryOpen;
         InitializeComponent();
         Theme.PrepareSensitiveWindow(this);
+        if (heading != null)
+            HeadingText.Text = heading;
+        if (action != null)
+            ActionButton.Content = action;
         ReasonText.Text = reason + " Enter the recovery code you saved at setup.";
         Loaded += (_, _) => CodeBox.Focus();
     }
